@@ -179,10 +179,16 @@ const removeImgBtn        = document.getElementById('removeImgBtn');
 document.addEventListener('DOMContentLoaded', async () => {
   initSupabase();
   setupEventListeners();
-  showLoadingState();
-  await loadProducts();
+  // ⚡ Instant Render: Load local state immediately so user sees content with 0ms delay
+  loadFromLocalStorage();
   renderProducts();
   updateStats();
+
+  // 📡 Background Cloud Sync: Fetch latest from Supabase without blocking UI
+  loadProducts().then(() => {
+    renderProducts();
+    updateStats();
+  });
   startRealtimeSync();
 });
 
@@ -724,22 +730,50 @@ async function uploadImagesToStorage(files, productId) {
 
 
 // ─── Publish & Update Submit ──────────────────────────────────────────────
-
 async function handlePublishSubmit(e) {
   e.preventDefault();
 
-  const sellerName    = document.getElementById('sellerName').value.trim();
-  const sellerPhone   = document.getElementById('sellerPhone').value.trim();
-  const title         = document.getElementById('productTitle').value.trim();
-  const priceRaw      = document.getElementById('productPrice').value.replace(/\D/g, '');
-  const price         = parseFloat(priceRaw) || 0;
-  const category      = document.getElementById('productCategory').value;
-  const neighborhoodStr = document.getElementById('productNeighborhood').value.trim();
-  const deliveryBadge = document.getElementById('deliveryBadge').value;
-  const description   = document.getElementById('productDescription').value.trim();
+  const sellerNameEl    = document.getElementById('sellerName');
+  const sellerPhoneEl   = document.getElementById('sellerPhone');
+  const titleEl         = document.getElementById('productTitle');
+  const priceEl         = document.getElementById('productPrice');
+  const categoryEl      = document.getElementById('productCategory');
+  const neighborhoodEl  = document.getElementById('productNeighborhood');
+  const deliveryBadgeEl = document.getElementById('deliveryBadge');
+  const descriptionEl   = document.getElementById('productDescription');
 
-  if (!sellerName || !sellerPhone || !title || !price || !category || !neighborhoodStr) {
-    showToast('Completa todos los campos obligatorios (*).', 'error');
+  const sellerName      = sellerNameEl?.value.trim() || '';
+  const sellerPhone     = sellerPhoneEl?.value.trim() || '';
+  const title           = titleEl?.value.trim() || '';
+  const priceRaw        = priceEl?.value.replace(/\D/g, '') || '';
+  const price           = parseFloat(priceRaw) || 0;
+  const category        = categoryEl?.value || '';
+  const neighborhoodStr = neighborhoodEl?.value.trim() || '';
+  const deliveryBadge   = deliveryBadgeEl?.value || 'domicilio';
+  const description     = descriptionEl?.value.trim() || '';
+
+  // Highlight missing required fields
+  let hasError = false;
+  [
+    { el: sellerNameEl, val: sellerName },
+    { el: sellerPhoneEl, val: sellerPhone },
+    { el: titleEl, val: title },
+    { el: priceEl, val: price },
+    { el: categoryEl, val: category },
+    { el: neighborhoodEl, val: neighborhoodStr }
+  ].forEach(item => {
+    if (!item.el) return;
+    if (!item.val) {
+      item.el.classList.add('field-error');
+      hasError = true;
+      item.el.addEventListener('input', () => item.el.classList.remove('field-error'), { once: true });
+    } else {
+      item.el.classList.remove('field-error');
+    }
+  });
+
+  if (hasError) {
+    showToast('Por favor completa todos los campos obligatorios (*).', 'error');
     return;
   }
 
@@ -823,16 +857,27 @@ async function handlePublishSubmit(e) {
   submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Publicar en Mercado Pereira';
 }
 
-// ─── Toast ────────────────────────────────────────────────────────────────
+// ─── Toast Notifications ──────────────────────────────────────────────────
 function showToast(message, type = 'success') {
   const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  const iconMap = {
+    success: 'fa-circle-check',
+    error: 'fa-circle-xmark',
+    warning: 'fa-triangle-exclamation',
+    info: 'fa-circle-info'
+  };
+
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.innerHTML = `
-    <i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i>
+    <i class="fa-solid ${iconMap[type] || 'fa-circle-check'}"></i>
     <span>${message}</span>
   `;
+
   container.appendChild(toast);
+
   setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transform = 'translateX(110%)';
