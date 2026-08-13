@@ -548,6 +548,10 @@ function updateStats() {
 function openModal() {
   publishModal.classList.add('active');
   document.body.style.overflow = 'hidden';
+  setTimeout(() => {
+    const firstInput = document.getElementById('sellerName');
+    if (firstInput) firstInput.focus();
+  }, 50);
 }
 
 function closeModal() {
@@ -637,8 +641,8 @@ function closeProductDetail() {
   }
 }
 
-// ─── Image Compression & Upload (Up to 3 Photos) ───────────────────────────
-function compressImageFile(file, maxWidth = 1000, quality = 0.75) {
+// ─── Ultra-Fast Image Compression (Up to 3 Photos, Max 600px) ─────────────
+function compressImageFile(file, maxWidth = 600, quality = 0.65) {
   return new Promise((resolve) => {
     if (!file || !file.type.startsWith('image/')) {
       resolve({ file, base64: null });
