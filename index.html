@@ -27,21 +27,6 @@
   <div class="bg-glow bg-glow-yellow"></div>
   <div class="bg-glow bg-glow-red"></div>
 
-  <!-- Top Announcement / Emergency Bar -->
-  <div class="top-emergency-bar">
-    <div class="container emergency-flex">
-      <div class="emergency-text">
-        <span class="pulse-dot"></span>
-        <strong>Pereira de Pie:</strong> La Vitrina Pereirana — Compra y vende con la comunidad.
-      </div>
-      <div class="emergency-lines">
-        <span class="emergency-pill"><i class="fa-solid fa-phone-volume"></i> Bomberos: <strong>119</strong></span>
-        <span class="emergency-pill"><i class="fa-solid fa-cross"></i> Cruz Roja: <strong>132</strong></span>
-        <span class="emergency-pill"><i class="fa-solid fa-shield-halved"></i> DIGER: <strong>123</strong></span>
-      </div>
-    </div>
-  </div>
-
   <!-- Main Navigation Header -->
   <header class="main-header">
     <div class="container header-content">
@@ -70,7 +55,7 @@
           </div>
         </div>
 
-        <button class="btn btn-primary" id="openPublishModalBtn">
+        <button class="btn btn-primary btn-header-publish" id="openPublishModalBtn">
           <i class="fa-solid fa-plus-circle"></i>
           <span>Publicar Producto</span>
         </button>
@@ -117,17 +102,7 @@
 
             <div class="select-wrapper">
               <i class="fa-solid fa-location-dot"></i>
-              <select id="neighborhoodFilter">
-                <option value="all">Todos los Barrios / Sectores</option>
-                <option value="cuba">Cuba / San Fernando</option>
-                <option value="centro">Centro de Pereira</option>
-                <option value="circunvalar">Circunvalar / Pinares</option>
-                <option value="dosquebradas">Dosquebradas</option>
-                <option value="boston">Boston / Providencia</option>
-                <option value="cerritos">Cerritos / Galicia</option>
-                <option value="alamos">Álamos / UTP</option>
-                <option value="villasantana">Villa Santana / Toki</option>
-              </select>
+              <input type="text" id="neighborhoodFilter" list="neighborhoodSuggestions" placeholder="Escribe un barrio o sector para filtrar..." autocomplete="off">
             </div>
           </div>
         </div>
@@ -159,6 +134,9 @@
         </button>
         <button class="category-pill" data-category="hogar">
           <i class="fa-solid fa-house"></i> Hogar
+        </button>
+        <button class="category-pill" data-category="otros">
+          <i class="fa-solid fa-box-open"></i> Otros
         </button>
       </div>
     </div>
@@ -201,6 +179,12 @@
     </div>
   </main>
 
+  <!-- FAB: Floating Publish Button for Mobile & Quick Access -->
+  <button class="fab-publish" id="fabPublishBtn" title="Haz clic para publicar tu producto o servicio gratis">
+    <i class="fa-solid fa-plus-circle"></i>
+    <span>Publicar Producto</span>
+  </button>
+
   <!-- Express Publish Modal -->
   <div class="modal-overlay" id="publishModal">
     <div class="modal-card">
@@ -233,7 +217,7 @@
         <div class="form-row">
           <div class="form-group">
             <label for="productPrice"><i class="fa-solid fa-dollar-sign"></i> Precio ($ COP) *</label>
-            <input type="number" id="productPrice" placeholder="Ej. 45000" min="0" required>
+            <input type="text" id="productPrice" inputmode="numeric" placeholder="Ej. 45.000" required autocomplete="off">
           </div>
 
           <div class="form-group">
@@ -254,25 +238,14 @@
         <div class="form-row">
           <div class="form-group">
             <label for="productNeighborhood"><i class="fa-solid fa-location-dot"></i> Barrio / Sector en Pereira *</label>
-            <select id="productNeighborhood" required>
-              <option value="">Seleccionar Barrio...</option>
-              <option value="cuba">Cuba / San Fernando</option>
-              <option value="centro">Centro de Pereira</option>
-              <option value="circunvalar">Circunvalar / Pinares</option>
-              <option value="dosquebradas">Dosquebradas</option>
-              <option value="boston">Boston / Providencia</option>
-              <option value="cerritos">Cerritos / Galicia</option>
-              <option value="alamos">Álamos / UTP</option>
-              <option value="villasantana">Villa Santana / Toki</option>
-            </select>
+            <input type="text" id="productNeighborhood" list="neighborhoodSuggestions" placeholder="Escribe tu barrio o sector (Ej. Cuba, Providencia, Álamos...)" required autocomplete="off">
           </div>
 
           <div class="form-group">
             <label for="deliveryBadge"><i class="fa-solid fa-truck-fast"></i> Modalidad de Entrega</label>
             <select id="deliveryBadge">
               <option value="domicilio">🛵 A Domicilio</option>
-              <option value="recogida">🏬 Recogida en Punto</option>
-              <option value="ambos">✨ Domicilio o Recogida</option>
+              <option value="recogida">🏬 Punto Físico / Recogida</option>
             </select>
           </div>
         </div>
@@ -282,23 +255,20 @@
           <textarea id="productDescription" rows="3" placeholder="Describe los detalles, disponibilidad, cantidades o características..."></textarea>
         </div>
 
-        <!-- Image Upload -->
+        <!-- Image Upload (Up to 3 Photos) -->
         <div class="form-group">
-          <label><i class="fa-solid fa-image"></i> Fotografía del Producto</label>
+          <label><i class="fa-solid fa-images"></i> Fotografías del Producto (Máximo 3)</label>
           
           <div class="image-upload-wrapper">
             <div class="upload-dropzone" id="dropzone">
               <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
-              <span>Haz clic o arrastra una imagen aquí</span>
-              <input type="file" id="imageInput" accept="image/*" class="file-input">
+              <span>Haz clic o arrastra hasta 3 fotos aquí</span>
+              <input type="file" id="imageInput" accept="image/*" multiple class="file-input">
             </div>
 
-            <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
-              <img id="imagePreview" src="" alt="Previsualización">
-              <button type="button" class="remove-img-btn" id="removeImgBtn"><i class="fa-solid fa-trash"></i></button>
-            </div>
+            <div class="image-preview-grid" id="imagePreviewGrid" style="display: none;"></div>
           </div>
-          <small class="help-text">Si no subes foto, asignaremos una foto ilustrativa de alta calidad según la categoría.</small>
+          <small class="help-text">Puedes subir hasta 3 imágenes por producto. Si no subes foto, asignaremos una ilustrativa según categoría.</small>
         </div>
 
         <div class="modal-footer">
@@ -308,6 +278,53 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Product Detail & Photo Lightbox Modal -->
+  <div class="modal-overlay" id="productDetailModal">
+    <div class="modal-card product-detail-card">
+      <button class="close-modal-btn close-detail-btn" id="closeDetailModalBtn" aria-label="Cerrar detalles">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="detail-content-wrapper">
+        <div class="detail-image-box">
+          <img id="detailImage" src="" alt="Fotografía del Producto" class="detail-image">
+          <div class="gallery-thumbs" id="galleryThumbs"></div>
+        </div>
+
+        <div class="detail-info-box">
+          <div class="detail-seller-meta">
+            <span id="detailSellerName"><i class="fa-solid fa-store"></i> </span>
+            <span id="detailTimeAgo" class="time-label"></span>
+          </div>
+
+          <h2 id="detailTitle" class="detail-title"></h2>
+          <div class="detail-price-row">
+            <span class="price-tag" id="detailPrice"></span>
+          </div>
+
+          <div class="detail-location-info">
+            <span><i class="fa-solid fa-location-dot" style="color:var(--pereira-yellow);"></i> Ubicación: <strong id="detailNeighborhood"></strong></span>
+            <span><i class="fa-solid fa-truck-fast" style="color:var(--pereira-yellow);"></i> Entrega: <strong id="detailDelivery"></strong></span>
+          </div>
+
+          <div class="detail-description-box">
+            <h4><i class="fa-solid fa-circle-info"></i> Descripción del Producto:</h4>
+            <p id="detailDescription"></p>
+          </div>
+
+          <div class="detail-actions">
+            <a id="detailWaBtn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp btn-detail-action">
+              <i class="fa-brands fa-whatsapp"></i> Contactar por WhatsApp
+            </a>
+            <a id="detailCallBtn" href="#" class="btn btn-call btn-detail-action" title="Llamar directamente">
+              <i class="fa-solid fa-phone"></i>
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -329,6 +346,33 @@
       </div>
     </div>
   </footer>
+
+  <!-- Datalist for Neighborhood Suggestions -->
+  <datalist id="neighborhoodSuggestions">
+    <option value="Cuba / San Fernando">
+    <option value="Centro de Pereira">
+    <option value="Circunvalar / Pinares">
+    <option value="Dosquebradas">
+    <option value="Boston / Providencia">
+    <option value="Cerritos / Galicia">
+    <option value="Álamos / UTP">
+    <option value="Villa Santana / Toki">
+    <option value="Maraya">
+    <option value="Alfonso López">
+    <option value="Kennedy">
+    <option value="El Jardín">
+    <option value="La Julia">
+    <option value="Los Alpes">
+    <option value="La Rebeca">
+    <option value="Perla del Otún">
+    <option value="San Joaquín">
+    <option value="Canaán">
+    <option value="Frailes">
+    <option value="Santa Rosa">
+    <option value="Consota">
+    <option value="Nacederos">
+    <option value="Rocío Bajo">
+  </datalist>
 
   <!-- Supabase JS Client v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>

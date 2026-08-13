@@ -6,24 +6,27 @@
  * ==========================================================================
  */
 
-// ─── Supabase Client Init ──────────────────────────────────────────────────
-let supabase = null;
-const SUPABASE_URL = window.SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '';
-const TABLE = 'marketplace_products';
+(function() {
+  'use strict';
 
-function initSupabase() {
-  try {
-    if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      console.log('✅ Supabase conectado correctamente.');
-    } else {
-      console.warn('⚠️ Supabase no disponible. Usando localStorage como respaldo.');
+  // ─── Supabase Client Init ──────────────────────────────────────────────────
+  let supabaseClient = null;
+  const SUPABASE_URL = window.SUPABASE_URL || '';
+  const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '';
+  const TABLE = 'marketplace_products';
+
+  function initSupabase() {
+    try {
+      if (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('✅ Supabase conectado correctamente.');
+      } else {
+        console.warn('⚠️ Supabase no disponible. Usando localStorage como respaldo.');
+      }
+    } catch (e) {
+      console.error('Error al inicializar Supabase:', e);
     }
-  } catch (e) {
-    console.error('Error al inicializar Supabase:', e);
   }
-}
 
 // ─── Fallback Demo Products ────────────────────────────────────────────────
 const DEFAULT_PRODUCTS = [
@@ -134,7 +137,7 @@ const NEIGHBORHOOD_LABELS = {
 };
 
 const DELIVERY_LABELS = {
-  domicilio: '🛵 A Domicilio', recogida: '🏬 Recogida', ambos: '✨ Dom. / Recogida'
+  domicilio: '🛵 A Domicilio', recogida: '🏬 Punto Físico / Recogida'
 };
 
 // ─── Application State ────────────────────────────────────────────────────
@@ -143,9 +146,12 @@ let currentCategory = 'all';
 let currentNeighborhood = 'all';
 let currentSearchTerm = '';
 let currentSort = 'recent';
-let selectedImageFile = null;  // Store the raw File for Supabase Storage upload
-let selectedImageData = null;  // Store base64 preview for display
+let selectedFilesList = [];    // Array of File objects (up to 3)
+let selectedImagesBase64 = []; // Array of base64 preview strings
 let isLoadingFromDB = false;
+let isAdminMode = sessionStorage.getItem('pereira_admin_logged') === 'true';
+let editingProductId = null;
+const ADMIN_PIN = '1234';
 
 // ─── DOM Refs ─────────────────────────────────────────────────────────────
 const productsGrid        = document.getElementById('productsGrid');
@@ -197,10 +203,10 @@ function showLoadingState() {
 
 // ─── Data Loading ─────────────────────────────────────────────────────────
 async function loadProducts() {
-  if (supabase) {
+  if (supabaseClient) {
     try {
       isLoadingFromDB = true;
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from(TABLE)
         .select('*')
         .order('created_at', { ascending: false });
@@ -244,9 +250,9 @@ function saveToLocalStorage() {
 }
 
 async function seedSupabaseWithDefaults() {
-  if (!supabase) return;
+  if (!supabaseClient) return;
   try {
-    const { error } = await supabase.from(TABLE).insert(DEFAULT_PRODUCTS);
+    const { error } = await supabaseClient.from(TABLE).insert(DEFAULT_PRODUCTS);
     if (!error) {
       productsState = [...DEFAULT_PRODUCTS];
       console.log('✅ Datos demo cargados a Supabase.');
@@ -260,9 +266,9 @@ async function seedSupabaseWithDefaults() {
 
 // ─── Real-time Sync ───────────────────────────────────────────────────────
 function startRealtimeSync() {
-  if (!supabase) return;
+  if (!supabaseClient) return;
 
-  supabase
+  supabaseClient
     .channel('marketplace_live')
     .on('postgres_changes', {
       event: 'INSERT',
@@ -320,6 +326,10 @@ function setupEventListeners() {
     updateActiveCategoryPill(currentCategory);
     renderProducts();
   });
+  neighborhoodFilter.addEventListener('input', (e) => {
+    currentNeighborhood = e.target.value;
+    renderProducts();
+  });
   neighborhoodFilter.addEventListener('change', (e) => {
     currentNeighborhood = e.target.value;
     renderProducts();
@@ -328,41 +338,152 @@ function setupEventListeners() {
     currentSort = e.target.value;
     renderProducts();
   });
+
+  // Category pills — direct handlers per pill for reliable mobile touch
+  bindCategoryPills();
+
+  // Modals — header button + FAB (floating button) + empty state
+  document.querySelectorAll('#openPublishModalBtn, #fabPublishBtn, #emptyStatePublishBtn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openModal();
+    });
+  });
+  if (closePublishModalBtn) closePublishModalBtn.addEventListener('click', closeModal);
+  if (cancelPublishBtn) cancelPublishBtn.addEventListener('click', closeModal);
+  if (publishModal) {
+    publishModal.addEventListener('click', (e) => { if (e.target === publishModal) closeModal(); });
+  }
+
+  if (imageInput) imageInput.addEventListener('change', handleImageSelect);
+  if (removeImgBtn) removeImgBtn.addEventListener('click', removeImagePreview);
+
+  if (dropzone) {
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = 'var(--pereira-yellow)';
+    });
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.style.borderColor = 'rgba(255, 199, 44, 0.4)';
+    });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = 'rgba(255, 199, 44, 0.4)';
+      if (e.dataTransfer.files?.[0]) {
+        imageInput.files = e.dataTransfer.files;
+        handleImageSelect();
+      }
+    });
+  }
+
+  // Real-time dot thousands separator for price input
+  const productPriceInput = document.getElementById('productPrice');
+  if (productPriceInput) {
+    productPriceInput.addEventListener('input', (e) => {
+      let raw = e.target.value.replace(/\D/g, '');
+      if (raw) {
+        let num = parseInt(raw, 10);
+        e.target.value = new Intl.NumberFormat('es-CO').format(num);
+      } else {
+        e.target.value = '';
+      }
+    });
+  }
+
+  // Admin Mode Login / Logout Handlers
+  const openAdminModalBtn  = document.getElementById('openAdminModalBtn');
+  const closeAdminModalBtn = document.getElementById('closeAdminModalBtn');
+  const cancelAdminBtn     = document.getElementById('cancelAdminBtn');
+  const adminModal         = document.getElementById('adminModal');
+  const adminLoginForm     = document.getElementById('adminLoginForm');
+  const logoutAdminBtn     = document.getElementById('logoutAdminBtn');
+
+  if (openAdminModalBtn) openAdminModalBtn.addEventListener('click', () => {
+    if (adminModal) adminModal.classList.add('active');
+  });
+  if (closeAdminModalBtn) closeAdminModalBtn.addEventListener('click', () => {
+    if (adminModal) adminModal.classList.remove('active');
+  });
+  if (cancelAdminBtn) cancelAdminBtn.addEventListener('click', () => {
+    if (adminModal) adminModal.classList.remove('active');
+  });
+  if (adminLoginForm) {
+    adminLoginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const pin = document.getElementById('adminPin').value.trim();
+      if (pin === ADMIN_PIN) {
+        isAdminMode = true;
+        sessionStorage.setItem('pereira_admin_logged', 'true');
+        if (adminModal) adminModal.classList.remove('active');
+        adminLoginForm.reset();
+        showToast('🔓 Modo Administrador Activado', 'success');
+        updateAdminUI();
+      } else {
+        showToast('Clave PIN incorrecta. Intenta nuevamente.', 'error');
+      }
+    });
+  }
+  if (logoutAdminBtn) {
+    logoutAdminBtn.addEventListener('click', () => {
+      isAdminMode = false;
+      sessionStorage.removeItem('pereira_admin_logged');
+      showToast('🔒 Sesión de Administrador cerrada.', 'success');
+      updateAdminUI();
+    });
+  }
+
+  // Card click handler — opens product detail modal & photo lightbox + admin actions
+  if (productsGrid) {
+    productsGrid.addEventListener('click', (e) => {
+      const editBtn   = e.target.closest('.btn-admin-edit');
+      const deleteBtn = e.target.closest('.btn-admin-delete');
+
+      if (editBtn) {
+        e.stopPropagation();
+        openEditModal(editBtn.dataset.editId);
+        return;
+      }
+      if (deleteBtn) {
+        e.stopPropagation();
+        deleteProduct(deleteBtn.dataset.deleteId);
+        return;
+      }
+
+      if (e.target.closest('.action-buttons') || e.target.closest('.admin-card-actions')) return;
+      const card = e.target.closest('.product-card');
+      if (card && card.dataset.productId) {
+        openProductDetail(card.dataset.productId);
+      }
+    });
+  }
+
+  // Close Product Detail Modal handlers
+  const closeDetailModalBtn = document.getElementById('closeDetailModalBtn');
+  const productDetailModal  = document.getElementById('productDetailModal');
+  if (closeDetailModalBtn) closeDetailModalBtn.addEventListener('click', closeProductDetail);
+  if (productDetailModal) {
+    productDetailModal.addEventListener('click', (e) => {
+      if (e.target === productDetailModal) closeProductDetail();
+    });
+  }
+
+  updateAdminUI();
+}
+
+// Bind category pills with clean click event delegation for desktop & mobile touch
+function bindCategoryPills() {
+  if (!categoryPillsContainer) return;
   categoryPillsContainer.addEventListener('click', (e) => {
     const pill = e.target.closest('.category-pill');
     if (!pill) return;
-    currentCategory = pill.dataset.category;
-    categoryFilter.value = currentCategory;
-    updateActiveCategoryPill(currentCategory);
+    const cat = pill.dataset.category;
+    if (!cat) return;
+
+    currentCategory = cat;
+    if (categoryFilter) categoryFilter.value = cat;
+    updateActiveCategoryPill(cat);
     renderProducts();
   });
-
-  openPublishModalBtn.addEventListener('click', openModal);
-  closePublishModalBtn.addEventListener('click', closeModal);
-  cancelPublishBtn.addEventListener('click', closeModal);
-  emptyStatePublishBtn?.addEventListener('click', openModal);
-  publishModal.addEventListener('click', (e) => { if (e.target === publishModal) closeModal(); });
-
-  imageInput.addEventListener('change', handleImageSelect);
-  removeImgBtn.addEventListener('click', removeImagePreview);
-
-  dropzone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropzone.style.borderColor = 'var(--pereira-yellow)';
-  });
-  dropzone.addEventListener('dragleave', () => {
-    dropzone.style.borderColor = 'rgba(255, 199, 44, 0.4)';
-  });
-  dropzone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropzone.style.borderColor = 'rgba(255, 199, 44, 0.4)';
-    if (e.dataTransfer.files?.[0]) {
-      imageInput.files = e.dataTransfer.files;
-      handleImageSelect();
-    }
-  });
-
-  publishForm.addEventListener('submit', handlePublishSubmit);
 }
 
 function updateActiveCategoryPill(catValue) {
@@ -375,13 +496,16 @@ function updateActiveCategoryPill(catValue) {
 function renderProducts() {
   let filtered = productsState.filter(item => {
     const matchCat    = currentCategory === 'all' || item.category === currentCategory;
-    const matchBarrio = currentNeighborhood === 'all' || item.neighborhood === currentNeighborhood;
+    const n = (currentNeighborhood || '').toLowerCase().trim();
+    const itemBarrio = (item.neighborhood_name || item.neighborhood || '').toLowerCase();
+    const matchBarrio = !n || n === 'all' || itemBarrio.includes(n);
+
     const q = currentSearchTerm;
     const matchSearch = !q ||
       item.title?.toLowerCase().includes(q) ||
       item.description?.toLowerCase().includes(q) ||
       item.seller_name?.toLowerCase().includes(q) ||
-      item.neighborhood_name?.toLowerCase().includes(q);
+      (item.neighborhood_name || item.neighborhood || '')?.toLowerCase().includes(q);
     return matchCat && matchBarrio && matchSearch;
   });
 
@@ -430,15 +554,26 @@ function buildWhatsAppLink(phone, sellerName, title, price, neighborhoodName) {
 // ─── Product Card HTML ────────────────────────────────────────────────────
 function createProductCardHTML(product) {
   const catLabel   = CATEGORY_LABELS[product.category] || '📦 Producto';
-  const barrio     = product.neighborhood_name || NEIGHBORHOOD_LABELS[product.neighborhood] || 'Pereira';
+  const barrio     = product.neighborhood_name || NEIGHBORHOOD_LABELS[product.neighborhood] || product.neighborhood || 'Pereira';
   const delivery   = DELIVERY_LABELS[product.delivery_badge] || '🛵 A Domicilio';
   const waLink     = buildWhatsAppLink(product.seller_phone, product.seller_name, product.title, product.price, barrio);
   const callLink   = `tel:${product.seller_phone}`;
-  const imgUrl     = product.image || CATEGORY_FALLBACK_IMAGES[product.category] || CATEGORY_FALLBACK_IMAGES.otros;
+  const imgUrl     = (product.images && product.images[0]) || product.image || CATEGORY_FALLBACK_IMAGES[product.category] || CATEGORY_FALLBACK_IMAGES.otros;
   const timeLabel  = timeAgo(product.created_at);
 
+  const adminControls = isAdminMode ? `
+    <div class="admin-card-actions" onclick="event.stopPropagation();">
+      <button class="btn-admin-edit" data-edit-id="${product.id}">
+        <i class="fa-solid fa-pen-to-square"></i> Editar
+      </button>
+      <button class="btn-admin-delete" data-delete-id="${product.id}">
+        <i class="fa-solid fa-trash-can"></i> Eliminar
+      </button>
+    </div>
+  ` : '';
+
   return `
-    <article class="product-card">
+    <article class="product-card" data-product-id="${product.id}" title="Haz clic para ver fotos y detalles">
       <div class="product-image-box">
         <img src="${imgUrl}" alt="${product.title}" class="product-image" loading="lazy"
              onerror="this.src='${CATEGORY_FALLBACK_IMAGES.otros}'">
@@ -464,17 +599,28 @@ function createProductCardHTML(product) {
           </div>
 
           <div class="action-buttons">
-            <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp">
+            <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp" onclick="event.stopPropagation();">
               <i class="fa-brands fa-whatsapp"></i> Comprar / Contactar
             </a>
-            <a href="${callLink}" class="btn btn-call" title="Llamar al vendedor">
+            <a href="${callLink}" class="btn btn-call" title="Llamar al vendedor" onclick="event.stopPropagation();">
               <i class="fa-solid fa-phone"></i>
             </a>
           </div>
+
+          ${adminControls}
         </div>
       </div>
     </article>
   `;
+}
+
+// ─── Admin UI Toggle ─────────────────────────────────────────────────────
+function updateAdminUI() {
+  const adminStatusBar = document.getElementById('adminStatusBar');
+  if (adminStatusBar) {
+    adminStatusBar.style.display = isAdminMode ? 'flex' : 'none';
+  }
+  renderProducts();
 }
 
 // ─── Stats Counter ────────────────────────────────────────────────────────
@@ -494,140 +640,315 @@ function closeModal() {
   publishModal.classList.remove('active');
   document.body.style.overflow = '';
   publishForm.reset();
+  editingProductId = null;
+  const modalTitle = publishModal.querySelector('.modal-title-group h3');
+  if (modalTitle) modalTitle.textContent = 'Publicar Producto o Servicio';
   removeImagePreview();
 }
 
-// ─── Image Upload ─────────────────────────────────────────────────────────
-function handleImageSelect() {
-  const file = imageInput.files[0];
-  if (!file) return;
-  selectedImageFile = file;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    selectedImageData = e.target.result; // base64 for preview only
-    imagePreview.src = selectedImageData;
-    imagePreviewContainer.style.display = 'block';
-    dropzone.style.display = 'none';
-  };
-  reader.readAsDataURL(file);
-}
+// ─── Product Detail & Photo Lightbox Modal ────────────────────────────────
+function openProductDetail(productId) {
+  const product = productsState.find(p => p.id === productId);
+  if (!product) return;
 
-function removeImagePreview() {
-  selectedImageData = null;
-  selectedImageFile = null;
-  imageInput.value = '';
-  imagePreview.src = '';
-  imagePreviewContainer.style.display = 'none';
-  dropzone.style.display = 'flex';
-}
+  const detailModal        = document.getElementById('productDetailModal');
+  const detailImage        = document.getElementById('detailImage');
+  const detailTitle        = document.getElementById('detailTitle');
+  const detailPrice        = document.getElementById('detailPrice');
+  const detailSellerName   = document.getElementById('detailSellerName');
+  const detailTimeAgo      = document.getElementById('detailTimeAgo');
+  const detailNeighborhood = document.getElementById('detailNeighborhood');
+  const detailDelivery     = document.getElementById('detailDelivery');
+  const detailDescription  = document.getElementById('detailDescription');
+  const detailWaBtn        = document.getElementById('detailWaBtn');
+  const detailCallBtn      = document.getElementById('detailCallBtn');
+  const galleryThumbs      = document.getElementById('galleryThumbs');
 
-// Upload image file to Supabase Storage and return public URL
-async function uploadImageToStorage(file, productId) {
-  if (!supabase || !file) return null;
-  try {
-    const ext = file.name.split('.').pop() || 'jpg';
-    const path = `${productId}.${ext}`;
-    const { data, error } = await supabase.storage
-      .from('product-images')
-      .upload(path, file, { upsert: true, contentType: file.type });
-    if (error) {
-      console.warn('Storage upload error:', error.message);
-      return null;
+  const barrio   = product.neighborhood_name || NEIGHBORHOOD_LABELS[product.neighborhood] || product.neighborhood || 'Pereira';
+  const delivery = DELIVERY_LABELS[product.delivery_badge] || '🛵 A Domicilio';
+  const waLink   = buildWhatsAppLink(product.seller_phone, product.seller_name, product.title, product.price, barrio);
+  const images   = (product.images && product.images.length > 0) ? product.images : [product.image || CATEGORY_FALLBACK_IMAGES[product.category] || CATEGORY_FALLBACK_IMAGES.otros];
+
+  if (detailImage) {
+    detailImage.src = images[0];
+    detailImage.alt = product.title;
+  }
+
+  if (galleryThumbs) {
+    if (images.length > 1) {
+      galleryThumbs.style.display = 'flex';
+      galleryThumbs.innerHTML = images.map((src, idx) => `
+        <button type="button" class="thumb-btn ${idx === 0 ? 'active' : ''}" data-index="${idx}">
+          <img src="${src}" alt="Miniatura ${idx + 1}">
+        </button>
+      `).join('');
+
+      galleryThumbs.querySelectorAll('.thumb-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          galleryThumbs.querySelectorAll('.thumb-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const i = parseInt(btn.dataset.index, 10);
+          if (detailImage) detailImage.src = images[i];
+        });
+      });
+    } else {
+      galleryThumbs.style.display = 'none';
+      galleryThumbs.innerHTML = '';
     }
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('product-images')
-      .getPublicUrl(path);
-    return urlData?.publicUrl || null;
-  } catch (e) {
-    console.error('Error subiendo foto:', e);
-    return null;
+  }
+
+  if (detailTitle) detailTitle.textContent = product.title;
+  if (detailPrice) detailPrice.textContent = formatCOP(product.price);
+  if (detailSellerName) detailSellerName.innerHTML = `<i class="fa-solid fa-store"></i> ${product.seller_name || 'Vendedor local'}`;
+  if (detailTimeAgo) detailTimeAgo.textContent = `• ${timeAgo(product.created_at)}`;
+  if (detailNeighborhood) detailNeighborhood.textContent = barrio;
+  if (detailDelivery) detailDelivery.textContent = delivery;
+  if (detailDescription) {
+    detailDescription.textContent = product.description || 'Sin descripción adicional. Contacta al vendedor directamente por WhatsApp o llamada para coordinar entrega o inquietudes.';
+  }
+  if (detailWaBtn) detailWaBtn.href = waLink;
+  if (detailCallBtn) detailCallBtn.href = `tel:${product.seller_phone}`;
+
+  if (detailModal) {
+    detailModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
   }
 }
 
-// ─── Publish Submit ───────────────────────────────────────────────────────
+function closeProductDetail() {
+  const detailModal = document.getElementById('productDetailModal');
+  if (detailModal) {
+    detailModal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+}
+
+// ─── Image Upload (Up to 3 Photos) ─────────────────────────────────────────
+function handleImageSelect() {
+  if (!imageInput || !imageInput.files) return;
+  const files = Array.from(imageInput.files);
+  if (files.length === 0) return;
+
+  if (selectedFilesList.length + files.length > 3) {
+    showToast('Puedes subir como máximo 3 fotografías por producto.', 'error');
+  }
+
+  const remaining = 3 - selectedFilesList.length;
+  const filesToAdd = files.slice(0, remaining);
+
+  filesToAdd.forEach(file => {
+    selectedFilesList.push(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      selectedImagesBase64.push(e.target.result);
+      renderImagePreviews();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderImagePreviews() {
+  const grid = document.getElementById('imagePreviewGrid');
+  if (!grid) return;
+
+  if (selectedImagesBase64.length === 0) {
+    grid.style.display = 'none';
+    grid.innerHTML = '';
+    if (dropzone) dropzone.style.display = 'flex';
+    return;
+  }
+
+  grid.style.display = 'grid';
+  grid.innerHTML = selectedImagesBase64.map((src, index) => `
+    <div class="preview-thumb-card">
+      <img src="${src}" alt="Foto ${index + 1}">
+      <button type="button" class="btn-remove-thumb" data-index="${index}" title="Eliminar foto">&times;</button>
+    </div>
+  `).join('');
+
+  if (selectedFilesList.length >= 3) {
+    if (dropzone) dropzone.style.display = 'none';
+  } else {
+    if (dropzone) dropzone.style.display = 'flex';
+  }
+
+  grid.querySelectorAll('.btn-remove-thumb').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index, 10);
+      selectedFilesList.splice(idx, 1);
+      selectedImagesBase64.splice(idx, 1);
+      if (imageInput) imageInput.value = '';
+      renderImagePreviews();
+    });
+  });
+}
+
+function removeImagePreview() {
+  selectedFilesList = [];
+  selectedImagesBase64 = [];
+  if (imageInput) imageInput.value = '';
+  renderImagePreviews();
+}
+
+// Upload multiple image files to Supabase Storage and return public URLs
+async function uploadImagesToStorage(files, productId) {
+  if (!supabaseClient || !files || files.length === 0) return [];
+  const urls = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `${productId}-${i + 1}.${ext}`;
+      const { data, error } = await supabaseClient.storage
+        .from('product-images')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (!error) {
+        const { data: urlData } = supabaseClient.storage
+          .from('product-images')
+          .getPublicUrl(path);
+        if (urlData?.publicUrl) urls.push(urlData.publicUrl);
+      }
+    } catch (e) {
+      console.error('Error subiendo foto:', e);
+    }
+  }
+  return urls;
+}
+
+// ─── Admin Edit & Delete Operations ──────────────────────────────────────
+async function deleteProduct(id) {
+  if (!confirm('¿Estás seguro de eliminar esta publicación de La Vitrina Pereirana?')) return;
+
+  if (supabaseClient) {
+    try {
+      const { error } = await supabaseClient.from(TABLE).delete().eq('id', id);
+      if (error) console.warn('Error eliminando en Supabase:', error.message);
+    } catch (e) {
+      console.error('Error de red al eliminar:', e);
+    }
+  }
+
+  productsState = productsState.filter(p => p.id !== id);
+  saveToLocalStorage();
+  renderProducts();
+  updateStats();
+  showToast('Publicación eliminada correctamente.', 'success');
+}
+
+function openEditModal(id) {
+  const product = productsState.find(p => p.id === id);
+  if (!product) return;
+
+  editingProductId = id;
+  document.getElementById('sellerName').value = product.seller_name || '';
+  document.getElementById('sellerPhone').value = product.seller_phone || '';
+  document.getElementById('productTitle').value = product.title || '';
+  document.getElementById('productPrice').value = new Intl.NumberFormat('es-CO').format(product.price);
+  document.getElementById('productCategory').value = product.category || '';
+  document.getElementById('productNeighborhood').value = product.neighborhood_name || product.neighborhood || '';
+  document.getElementById('deliveryBadge').value = product.delivery_badge || 'domicilio';
+  document.getElementById('productDescription').value = product.description || '';
+
+  selectedFilesList = [];
+  selectedImagesBase64 = product.images || (product.image ? [product.image] : []);
+  renderImagePreviews();
+
+  const modalTitle = publishModal.querySelector('.modal-title-group h3');
+  if (modalTitle) modalTitle.textContent = 'Editar Publicación';
+
+  openModal();
+}
+
+// ─── Publish & Update Submit ──────────────────────────────────────────────
 async function handlePublishSubmit(e) {
   e.preventDefault();
 
   const sellerName    = document.getElementById('sellerName').value.trim();
   const sellerPhone   = document.getElementById('sellerPhone').value.trim();
   const title         = document.getElementById('productTitle').value.trim();
-  const price         = parseFloat(document.getElementById('productPrice').value) || 0;
+  const priceRaw      = document.getElementById('productPrice').value.replace(/\D/g, '');
+  const price         = parseFloat(priceRaw) || 0;
   const category      = document.getElementById('productCategory').value;
-  const neighborhood  = document.getElementById('productNeighborhood').value;
+  const neighborhoodStr = document.getElementById('productNeighborhood').value.trim();
   const deliveryBadge = document.getElementById('deliveryBadge').value;
   const description   = document.getElementById('productDescription').value.trim();
 
-  if (!sellerName || !sellerPhone || !title || !price || !category || !neighborhood) {
+  if (!sellerName || !sellerPhone || !title || !price || !category || !neighborhoodStr) {
     showToast('Completa todos los campos obligatorios (*).', 'error');
     return;
   }
 
   const submitBtn = publishForm.querySelector('.btn-submit');
   submitBtn.disabled = true;
-  submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Publicando...';
+  const isEditing = Boolean(editingProductId);
+  submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${isEditing ? 'Guardando cambios...' : 'Publicando...'}`;
 
-  const productId = `prod-${Date.now()}`;
+  const productId = editingProductId || `prod-${Date.now()}`;
 
-  // Step 1: Upload photo to Supabase Storage (if provided)
-  let imageUrl = CATEGORY_FALLBACK_IMAGES[category] || CATEGORY_FALLBACK_IMAGES.otros;
-  if (selectedImageFile && supabase) {
-    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo foto...';
-    const uploadedUrl = await uploadImageToStorage(selectedImageFile, productId);
-    if (uploadedUrl) {
-      imageUrl = uploadedUrl;
-      console.log('✅ Foto subida a Storage:', uploadedUrl);
-    } else {
-      // Fall back to base64 if storage fails (works locally but not cross-device)
-      imageUrl = selectedImageData || imageUrl;
-      console.warn('⚠️ Storage no disponible. La foto solo se verá localmente.');
+  // Step 1: Upload photos to Supabase Storage (if new files selected)
+  let imageUrls = selectedImagesBase64.length > 0 ? [...selectedImagesBase64] : [CATEGORY_FALLBACK_IMAGES[category] || CATEGORY_FALLBACK_IMAGES.otros];
+
+  if (selectedFilesList.length > 0 && supabaseClient) {
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo fotos...';
+    const uploadedUrls = await uploadImagesToStorage(selectedFilesList, productId);
+    if (uploadedUrls && uploadedUrls.length > 0) {
+      imageUrls = uploadedUrls;
+      console.log('✅ Fotos subidas a Storage:', uploadedUrls);
     }
-  } else if (selectedImageData && !supabase) {
-    // No Supabase: use base64 (local only)
-    imageUrl = selectedImageData;
   }
 
-  submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando producto...';
+  const primaryImage = imageUrls[0] || CATEGORY_FALLBACK_IMAGES[category] || CATEGORY_FALLBACK_IMAGES.otros;
 
-  const newProduct = {
+  const productData = {
     id: productId,
     title,
     description,
     price,
     category,
-    neighborhood,
-    neighborhood_name: NEIGHBORHOOD_LABELS[neighborhood] || 'Pereira',
+    neighborhood: neighborhoodStr.toLowerCase(),
+    neighborhood_name: neighborhoodStr,
     seller_name: sellerName,
     seller_phone: sellerPhone,
     delivery_badge: deliveryBadge,
-    image: imageUrl,
-    created_at: new Date().toISOString()
+    image: primaryImage,
+    images: imageUrls,
+    created_at: isEditing ? (productsState.find(p => p.id === productId)?.created_at || new Date().toISOString()) : new Date().toISOString()
   };
 
-  // Step 2: Save product record to Supabase DB
+  // Step 2: Save or Update product record in Supabase DB
   let savedToCloud = false;
-  if (supabase) {
+  if (supabaseClient) {
     try {
-      const { error } = await supabase.from(TABLE).insert([newProduct]);
+      const { error } = isEditing 
+        ? await supabaseClient.from(TABLE).update(productData).eq('id', productId)
+        : await supabaseClient.from(TABLE).insert([productData]);
+
       if (!error) {
         savedToCloud = true;
-        console.log('✅ Producto guardado en Supabase.');
+        console.log(`✅ Producto ${isEditing ? 'actualizado' : 'guardado'} en Supabase.`);
       } else {
-        console.warn('Error al guardar en Supabase:', error.message);
+        console.warn('Error en Supabase:', error.message);
       }
     } catch (err) {
       console.error('Error de red Supabase:', err);
     }
   }
 
-  // Always update local state for immediate UI feedback
-  productsState.unshift(newProduct);
+  // Update local state
+  if (isEditing) {
+    const idx = productsState.findIndex(p => p.id === productId);
+    if (idx !== -1) productsState[idx] = productData;
+  } else {
+    productsState.unshift(productData);
+  }
+
   saveToLocalStorage();
 
   if (savedToCloud) {
-    showToast('¡Publicado en La Vitrina Pereirana! 🎉 Todos pueden verlo ya.', 'success');
+    showToast(isEditing ? '¡Publicación actualizada correctamente!' : '¡Publicado en La Vitrina Pereirana! 🎉', 'success');
   } else {
-    showToast('Publicado localmente. Se sincronizará cuando la BD esté lista.', 'success');
+    showToast(isEditing ? 'Cambios guardados localmente.' : 'Publicado localmente.', 'success');
   }
 
   renderProducts();
@@ -655,3 +976,5 @@ function showToast(message, type = 'success') {
     setTimeout(() => toast.remove(), 350);
   }, 4000);
 }
+
+})();

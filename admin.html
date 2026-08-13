@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Supabase Config -->
+  <script>
+    window.SUPABASE_URL = 'https://wqqwmtfupeejqzfnujdm.supabase.co';
+    window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXdtdGZ1cGVlanF6Zm51amRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MzM1OTQsImV4cCI6MjEwMjIwOTU5NH0.boRlhzLZzAHu8gyJQHZt4p9UXYtmQmVjTqqihpSPeos';
+  </script>
+  <title>Panel de Administración | La Vitrina Pereirana</title>
+  <meta name="description" content="Panel de administración para la gestión de productos y comerciantes en Pereira.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-body">
+  <!-- Background Glow -->
+  <div class="bg-glow bg-glow-yellow"></div>
+  <div class="bg-glow bg-glow-red"></div>
+
+  <!-- Header Navigation -->
+  <header class="main-header">
+    <div class="container header-content">
+      <a href="index.html" class="brand-logo">
+        <div class="flag-icon">
+          <div class="flag-stripe flag-yellow"></div>
+          <div class="flag-stripe flag-red"></div>
+        </div>
+        <div class="logo-text">
+          <span class="logo-title">LA VITRINA <span class="highlight-yellow">PEREIRANA</span></span>
+          <span class="logo-subtitle"><i class="fa-solid fa-user-shield highlight-yellow"></i> PANEL DE ADMINISTRACIÓN</span>
+        </div>
+      </a>
+
+      <div class="header-actions">
+        <a href="index.html" class="btn btn-secondary btn-sm">
+          <i class="fa-solid fa-store"></i> Ver Tienda Pública
+        </a>
+        <button id="logoutBtn" class="btn btn-secondary btn-sm" style="display: none;">
+          <i class="fa-solid fa-right-from-bracket"></i> Salir
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Login Section -->
+  <main class="container admin-main" id="loginSection">
+    <div class="admin-login-card">
+      <div class="admin-login-header">
+        <div class="admin-icon-box">
+          <i class="fa-solid fa-lock"></i>
+        </div>
+        <h2>Acceso de Administrador</h2>
+        <p>Ingresa la clave PIN de administración para gestionar, editar y eliminar publicaciones.</p>
+      </div>
+
+      <form id="adminLoginForm">
+        <div class="form-group">
+          <label for="adminPinInput"><i class="fa-solid fa-key"></i> Clave PIN de Administrador</label>
+          <input type="password" id="adminPinInput" placeholder="Ingresa clave PIN (Ej. 1234)" required autocomplete="off">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">
+          <i class="fa-solid fa-unlock"></i> Acceder al Panel
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <!-- Dashboard Section -->
+  <main class="container admin-main" id="dashboardSection" style="display: none;">
+    <!-- Top Dashboard Header & Stats -->
+    <div class="admin-dashboard-header">
+      <div>
+        <h1 class="admin-page-title">Gestión de Publicaciones</h1>
+        <p class="admin-page-subtitle">Panel de control para modificar o eliminar productos del catálogo en tiempo real.</p>
+      </div>
+
+      <button class="btn btn-primary" id="openAdminPublishModalBtn">
+        <i class="fa-solid fa-plus-circle"></i> Publicar Nuevo Producto
+      </button>
+    </div>
+
+    <!-- Quick Stats Cards -->
+    <div class="admin-stats-grid">
+      <div class="admin-stat-card">
+        <div class="stat-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
+        <div>
+          <span class="stat-val" id="adminTotalCount">0</span>
+          <span class="stat-lbl">Publicaciones Totales</span>
+        </div>
+      </div>
+
+      <div class="admin-stat-card">
+        <div class="stat-icon"><i class="fa-solid fa-store"></i></div>
+        <div>
+          <span class="stat-val" id="adminSellersCount">0</span>
+          <span class="stat-lbl">Emprendedores Activos</span>
+        </div>
+      </div>
+
+      <div class="admin-stat-card">
+        <div class="stat-icon"><i class="fa-solid fa-signal"></i></div>
+        <div>
+          <span class="stat-val" id="adminStatusText">Conectado</span>
+          <span class="stat-lbl">Estado Base de Datos</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div class="admin-toolbar">
+      <div class="search-input-wrapper">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="text" id="adminSearchInput" placeholder="Buscar por título, vendedor o barrio..." autocomplete="off">
+      </div>
+
+      <select id="adminCategorySelect" class="admin-select">
+        <option value="all">Todas las Categorías</option>
+        <option value="viveres">🍞 Víveres</option>
+        <option value="construccion">🛠️ Construcción</option>
+        <option value="servicios">⚡ Servicios</option>
+        <option value="restaurantes">🍽️ Restaurantes</option>
+        <option value="tecnologia">🔋 Tecnología</option>
+        <option value="hogar">🏠 Hogar</option>
+        <option value="otros">📦 Otros</option>
+      </select>
+    </div>
+
+    <!-- Admin Products Table (Desktop View) -->
+    <div class="admin-table-wrapper hide-mobile">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Vendedor / WhatsApp</th>
+            <th>Barrio</th>
+            <th>Precio</th>
+            <th>Entrega</th>
+            <th style="text-align: right;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="adminTableBody">
+          <!-- Dynamically populated rows -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Admin Products Cards Grid (Mobile View) -->
+    <div class="admin-cards-grid hide-desktop" id="adminCardsGrid">
+      <!-- Dynamically populated mobile cards -->
+    </div>
+  </main>
+
+  <!-- Edit / Create Product Modal -->
+  <div class="modal-overlay" id="adminProductModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="flag-mini"></div>
+          <h3 id="adminModalHeading">Publicar Producto o Servicio</h3>
+        </div>
+        <button class="close-modal-btn" id="closeAdminProductModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="adminProductForm" class="modal-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="adminSellerName"><i class="fa-solid fa-user"></i> Tu Nombre o Negocio *</label>
+            <input type="text" id="adminSellerName" placeholder="Ej. Don Carlos / Ferretería El Progreso" required>
+          </div>
+
+          <div class="form-group">
+            <label for="adminSellerPhone"><i class="fa-brands fa-whatsapp"></i> Número de WhatsApp *</label>
+            <input type="tel" id="adminSellerPhone" placeholder="Ej. 3101234567" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="adminProductTitle"><i class="fa-solid fa-tag"></i> Título del Producto o Servicio *</label>
+          <input type="text" id="adminProductTitle" placeholder="Ej. Set de Tejas de Fibrocemento o Menú de Almuerzos" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="adminProductPrice"><i class="fa-solid fa-dollar-sign"></i> Precio ($ COP) *</label>
+            <input type="text" id="adminProductPrice" inputmode="numeric" placeholder="Ej. 45.000" required autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label for="adminProductCategory"><i class="fa-solid fa-list"></i> Categoría *</label>
+            <select id="adminProductCategory" required>
+              <option value="">Seleccionar...</option>
+              <option value="viveres">🍞 Víveres & Alimentos</option>
+              <option value="construccion">🛠️ Materiales & Reparación</option>
+              <option value="servicios">⚡ Servicios Técnicos</option>
+              <option value="restaurantes">🍽️ Comida & Restaurantes</option>
+              <option value="tecnologia">🔋 Tecnología & Carga</option>
+              <option value="hogar">🏠 Hogar & Ropa</option>
+              <option value="otros">📦 Otros Productos</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="adminProductNeighborhood"><i class="fa-solid fa-location-dot"></i> Barrio / Sector en Pereira *</label>
+            <input type="text" id="adminProductNeighborhood" list="neighborhoodSuggestions" placeholder="Escribe tu barrio o sector (Ej. Cuba, Providencia, Álamos...)" required autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label for="adminDeliveryBadge"><i class="fa-solid fa-truck-fast"></i> Modalidad de Entrega</label>
+            <select id="adminDeliveryBadge">
+              <option value="domicilio">🛵 A Domicilio</option>
+              <option value="recogida">🏬 Punto Físico / Recogida</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="adminProductDescription"><i class="fa-solid fa-align-left"></i> Descripción del Producto o Servicio</label>
+          <textarea id="adminProductDescription" rows="3" placeholder="Describe los detalles, disponibilidad, cantidades o características..."></textarea>
+        </div>
+
+        <!-- Image Upload (Up to 3 Photos) -->
+        <div class="form-group">
+          <label><i class="fa-solid fa-images"></i> Fotografías del Producto (Máximo 3)</label>
+          
+          <div class="image-upload-wrapper">
+            <div class="upload-dropzone" id="adminDropzone">
+              <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+              <span>Haz clic o arrastra hasta 3 fotos aquí</span>
+              <input type="file" id="adminImageInput" accept="image/*" multiple class="file-input">
+            </div>
+
+            <div class="image-preview-grid" id="adminImagePreviewGrid" style="display: none;"></div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelAdminProductBtn">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-submit" id="submitAdminProductBtn">
+            <i class="fa-solid fa-floppy-disk"></i> Guardar Cambios
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Modal -->
+  <div class="modal-overlay" id="deleteConfirmModal">
+    <div class="modal-card admin-modal-card" style="text-align: center; padding: 2rem;">
+      <div style="font-size: 2.5rem; color: var(--pereira-red); margin-bottom: 0.8rem;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3 style="font-size: 1.25rem; color: #FFFFFF; margin-bottom: 0.5rem;">¿Eliminar publicación?</h3>
+      <p id="deleteConfirmText" style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.5rem;"></p>
+      <div style="display: flex; gap: 0.75rem; justify-content: center;">
+        <button type="button" class="btn btn-secondary" id="cancelDeleteBtn">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="confirmDeleteBtn" style="background: var(--pereira-red); border-color: var(--pereira-red);">
+          <i class="fa-solid fa-trash-can"></i> Sí, Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Datalist for Neighborhood Suggestions -->
+  <datalist id="neighborhoodSuggestions">
+    <option value="Cuba / San Fernando">
+    <option value="Centro de Pereira">
+    <option value="Circunvalar / Pinares">
+    <option value="Dosquebradas">
+    <option value="Boston / Providencia">
+    <option value="Cerritos / Galicia">
+    <option value="Álamos / UTP">
+    <option value="Villa Santana / Toki">
+    <option value="Maraya">
+    <option value="Alfonso López">
+    <option value="Kennedy">
+    <option value="El Jardín">
+    <option value="La Julia">
+    <option value="Los Alpes">
+    <option value="La Rebeca">
+  </datalist>
+
+  <!-- Supabase JS Client v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <!-- Admin Script -->
+  <script src="admin.js"></script>
+</body>
+</html>
