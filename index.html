@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Supabase Config (injected before app.js) -->
+  <script>
+    window.SUPABASE_URL = 'https://wqqwmtfupeejqzfnujdm.supabase.co';
+    window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXdtdGZ1cGVlanF6Zm51amRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MzM1OTQsImV4cCI6MjEwMjIwOTU5NH0.boRlhzLZzAHu8gyJQHZt4p9UXYtmQmVjTqqihpSPeos';
+  </script>
+  <title>Mercado Pereira Resiliente | Comercio & Solidaridad Local</title>
+  <meta name="description" content="El Marketplace oficial de Pereira para comprar, vender y apoyar a comerciantes, independientes y emprendedores de nuestra ciudad.">
+  
+  <!-- Google Fonts: Outfit & Inter for ultra modern typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons for crisp UI elements -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Background Ambient Glow with Pereira Colors -->
+  <div class="bg-glow bg-glow-yellow"></div>
+  <div class="bg-glow bg-glow-red"></div>
+
+  <!-- Top Announcement / Emergency Bar -->
+  <div class="top-emergency-bar">
+    <div class="container emergency-flex">
+      <div class="emergency-text">
+        <span class="pulse-dot"></span>
+        <strong>Pereira de Pie:</strong> Marketplace de Reactivación & Solidaridad tras el sismo.
+      </div>
+      <div class="emergency-lines">
+        <span class="emergency-pill"><i class="fa-solid fa-phone-volume"></i> Bomberos: <strong>119</strong></span>
+        <span class="emergency-pill"><i class="fa-solid fa-cross"></i> Cruz Roja: <strong>132</strong></span>
+        <span class="emergency-pill"><i class="fa-solid fa-shield-halved"></i> DIGER: <strong>123</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Navigation Header -->
+  <header class="main-header">
+    <div class="container header-content">
+      <!-- City Pride Logo -->
+      <a href="#" class="brand-logo">
+        <div class="flag-icon">
+          <div class="flag-stripe flag-yellow"></div>
+          <div class="flag-stripe flag-red"></div>
+        </div>
+        <div class="logo-text">
+          <span class="logo-title">MERCADO <span class="highlight-yellow">PEREIRA</span></span>
+          <span class="logo-subtitle"><i class="fa-solid fa-heart-pulse highlight-red"></i> RESILIENTE</span>
+        </div>
+      </a>
+
+      <!-- Quick Actions & Stats -->
+      <div class="header-actions">
+        <div class="quick-stats hide-mobile">
+          <div class="stat-item">
+            <span class="stat-number" id="totalProductsCount">0</span>
+            <span class="stat-label">Publicaciones</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number" id="totalSellersCount">0</span>
+            <span class="stat-label">Emprendedores</span>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="openPublishModalBtn">
+          <i class="fa-solid fa-plus-circle"></i>
+          <span>Publicar Producto</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Banner with City Pride -->
+  <section class="hero-section">
+    <div class="container">
+      <div class="hero-card">
+        <div class="hero-badge">
+          <i class="fa-solid fa-city"></i> Unidos por la Perla del Otún
+        </div>
+        <h1 class="hero-title">
+          Compra, vende y apoya a los <span class="text-gradient">emprendedores de Pereira</span>
+        </h1>
+        <p class="hero-subtitle">
+          Apoya el comercio local, encuentra materiales, viveres, servicios técnicos y productos de nuestros independientes y comerciantes tras el sismo. ¡Contacto directo por WhatsApp!
+        </p>
+
+        <!-- Search & Filter Bar -->
+        <div class="search-filter-box">
+          <div class="search-input-wrapper">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="searchInput" placeholder="¿Qué necesitas hoy? (Ej. Tejas, plomero, almuerzos, agua, viveres)..." autocomplete="off">
+            <button class="clear-search-btn" id="clearSearchBtn" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+
+          <div class="filter-selects">
+            <div class="select-wrapper">
+              <i class="fa-solid fa-layer-group"></i>
+              <select id="categoryFilter">
+                <option value="all">Todas las Categorías</option>
+                <option value="viveres">🍞 Víveres & Alimentos</option>
+                <option value="construccion">🛠️ Materiales & Reparación</option>
+                <option value="servicios">⚡ Servicios Técnicos</option>
+                <option value="restaurantes">🍽️ Comida & Restaurantes</option>
+                <option value="tecnologia">🔋 Tecnología & Carga</option>
+                <option value="hogar">🏠 Hogar & Ropa</option>
+                <option value="otros">📦 Otros Productos</option>
+              </select>
+            </div>
+
+            <div class="select-wrapper">
+              <i class="fa-solid fa-location-dot"></i>
+              <select id="neighborhoodFilter">
+                <option value="all">Todos los Barrios / Sectores</option>
+                <option value="cuba">Cuba / San Fernando</option>
+                <option value="centro">Centro de Pereira</option>
+                <option value="circunvalar">Circunvalar / Pinares</option>
+                <option value="dosquebradas">Dosquebradas</option>
+                <option value="boston">Boston / Providencia</option>
+                <option value="cerritos">Cerritos / Galicia</option>
+                <option value="alamos">Álamos / UTP</option>
+                <option value="villasantana">Villa Santana / Toki</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Category Pills Bar -->
+  <section class="categories-bar-section">
+    <div class="container">
+      <div class="categories-scroll" id="categoryPillsContainer">
+        <button class="category-pill active" data-category="all">
+          <i class="fa-solid fa-border-all"></i> Todo
+        </button>
+        <button class="category-pill" data-category="viveres">
+          <i class="fa-solid fa-basket-shopping"></i> Víveres
+        </button>
+        <button class="category-pill" data-category="construccion">
+          <i class="fa-solid fa-hammer"></i> Construcción
+        </button>
+        <button class="category-pill" data-category="servicios">
+          <i class="fa-solid fa-screwdriver-wrench"></i> Servicios
+        </button>
+        <button class="category-pill" data-category="restaurantes">
+          <i class="fa-solid fa-utensils"></i> Restaurantes
+        </button>
+        <button class="category-pill" data-category="tecnologia">
+          <i class="fa-solid fa-bolt"></i> Tecnología & Carga
+        </button>
+        <button class="category-pill" data-category="hogar">
+          <i class="fa-solid fa-house"></i> Hogar
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Marketplace Section -->
+  <main class="marketplace-section">
+    <div class="container">
+      <!-- Active Filters Summary & Sorting -->
+      <div class="results-header">
+        <div class="results-info">
+          <h2 class="section-title">Publicaciones <span class="highlight-yellow" id="currentCategoryTitle">Destacadas</span></h2>
+          <span class="results-count" id="resultsCountBadge">Mostrando 0 productos</span>
+        </div>
+
+        <div class="sort-wrapper">
+          <label for="sortSelect"><i class="fa-solid fa-arrow-down-short-wide"></i> Ordenar:</label>
+          <select id="sortSelect">
+            <option value="recent">Más recientes primero</option>
+            <option value="price-low">Precio: Menor a Mayor</option>
+            <option value="price-high">Precio: Mayor a Menor</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Marketplace Products Grid -->
+      <div class="products-grid" id="productsGrid">
+        <!-- Products cards injected via JS -->
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state" id="emptyState" style="display: none;">
+        <div class="empty-icon"><i class="fa-solid fa-store-slash"></i></div>
+        <h3>No se encontraron productos</h3>
+        <p>Intenta ajustar tus criterios de búsqueda o sé el primero en publicar en esta categoría.</p>
+        <button class="btn btn-primary" id="emptyStatePublishBtn">
+          <i class="fa-solid fa-plus-circle"></i> Publicar Mi Producto
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Express Publish Modal -->
+  <div class="modal-overlay" id="publishModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="flag-mini"></div>
+          <h3>Publicar Producto o Servicio</h3>
+        </div>
+        <button class="close-modal-btn" id="closePublishModalBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="publishForm" class="modal-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="sellerName"><i class="fa-solid fa-user"></i> Tu Nombre o Negocio *</label>
+            <input type="text" id="sellerName" placeholder="Ej. Don Carlos / Ferretería El Progreso" required>
+          </div>
+
+          <div class="form-group">
+            <label for="sellerPhone"><i class="fa-brands fa-whatsapp"></i> Número de WhatsApp *</label>
+            <input type="tel" id="sellerPhone" placeholder="Ej. 3101234567" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="productTitle"><i class="fa-solid fa-tag"></i> Título del Producto o Servicio *</label>
+          <input type="text" id="productTitle" placeholder="Ej. Set de Tejas de Fibrocemento o Menú de Almuerzos" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="productPrice"><i class="fa-solid fa-dollar-sign"></i> Precio ($ COP) *</label>
+            <input type="number" id="productPrice" placeholder="Ej. 45000" min="0" required>
+          </div>
+
+          <div class="form-group">
+            <label for="productCategory"><i class="fa-solid fa-list"></i> Categoría *</label>
+            <select id="productCategory" required>
+              <option value="">Seleccionar...</option>
+              <option value="viveres">🍞 Víveres & Alimentos</option>
+              <option value="construccion">🛠️ Materiales & Reparación</option>
+              <option value="servicios">⚡ Servicios Técnicos</option>
+              <option value="restaurantes">🍽️ Comida & Restaurantes</option>
+              <option value="tecnologia">🔋 Tecnología & Carga</option>
+              <option value="hogar">🏠 Hogar & Ropa</option>
+              <option value="otros">📦 Otros Productos</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="productNeighborhood"><i class="fa-solid fa-location-dot"></i> Barrio / Sector en Pereira *</label>
+            <select id="productNeighborhood" required>
+              <option value="">Seleccionar Barrio...</option>
+              <option value="cuba">Cuba / San Fernando</option>
+              <option value="centro">Centro de Pereira</option>
+              <option value="circunvalar">Circunvalar / Pinares</option>
+              <option value="dosquebradas">Dosquebradas</option>
+              <option value="boston">Boston / Providencia</option>
+              <option value="cerritos">Cerritos / Galicia</option>
+              <option value="alamos">Álamos / UTP</option>
+              <option value="villasantana">Villa Santana / Toki</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="deliveryBadge"><i class="fa-solid fa-truck-fast"></i> Modalidad de Entrega</label>
+            <select id="deliveryBadge">
+              <option value="domicilio">🛵 A Domicilio</option>
+              <option value="recogida">🏬 Recogida en Punto</option>
+              <option value="ambos">✨ Domicilio o Recogida</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="productDescription"><i class="fa-solid fa-align-left"></i> Descripción del Producto o Servicio</label>
+          <textarea id="productDescription" rows="3" placeholder="Describe los detalles, disponibilidad, cantidades o características..."></textarea>
+        </div>
+
+        <!-- Image Upload -->
+        <div class="form-group">
+          <label><i class="fa-solid fa-image"></i> Fotografía del Producto</label>
+          
+          <div class="image-upload-wrapper">
+            <div class="upload-dropzone" id="dropzone">
+              <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+              <span>Haz clic o arrastra una imagen aquí</span>
+              <input type="file" id="imageInput" accept="image/*" class="file-input">
+            </div>
+
+            <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
+              <img id="imagePreview" src="" alt="Previsualización">
+              <button type="button" class="remove-img-btn" id="removeImgBtn"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>
+          <small class="help-text">Si no subes foto, asignaremos una foto ilustrativa de alta calidad según la categoría.</small>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelPublishBtn">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-submit">
+            <i class="fa-solid fa-paper-plane"></i> Publicar en Mercado Pereira
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Footer -->
+  <footer class="main-footer">
+    <div class="container footer-flex">
+      <div class="footer-brand">
+        <div class="flag-icon mini">
+          <div class="flag-stripe flag-yellow"></div>
+          <div class="flag-stripe flag-red"></div>
+        </div>
+        <span>Mercado Pereira Resiliente &copy; 2026 - Conectando a la Querendona, Trasnochadora y Morena</span>
+      </div>
+      <div class="footer-credits">
+        <span><i class="fa-solid fa-heart highlight-red"></i> Construido con orgullo para Pereira</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Supabase JS Client v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <!-- App Script -->
+  <script src="app.js"></script>
+</body>
+</html>
