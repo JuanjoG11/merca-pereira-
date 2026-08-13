@@ -471,8 +471,61 @@
     renderImagePreviews();
   }
 
-  // ─── Image Upload Handling ────────────────────────────────────────────────
-  function handleImageSelect() {
+  // ─── Image Compression & Upload Handling ─────────────────────────────────
+  function compressImageFile(file, maxWidth = 1000, quality = 0.75) {
+    return new Promise((resolve) => {
+      if (!file || !file.type.startsWith('image/')) {
+        resolve({ file, base64: null });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxWidth || height > maxWidth) {
+            if (width > height) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            } else {
+              width = Math.round((width * maxWidth) / height);
+              height = maxWidth;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              resolve({ file, base64: compressedBase64 });
+              return;
+            }
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            });
+            resolve({ file: compressedFile, base64: compressedBase64 });
+          }, 'image/jpeg', quality);
+        };
+        img.onerror = () => resolve({ file, base64: e.target.result });
+        img.src = e.target.result;
+      };
+      reader.onerror = () => resolve({ file, base64: null });
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleImageSelect() {
     if (!adminImageInput || !adminImageInput.files) return;
     const files = Array.from(adminImageInput.files);
     if (files.length === 0) return;
@@ -484,15 +537,13 @@
     const remaining = 3 - selectedFilesList.length;
     const filesToAdd = files.slice(0, remaining);
 
-    filesToAdd.forEach(file => {
-      selectedFilesList.push(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        selectedImagesBase64.push(e.target.result);
-        renderImagePreviews();
-      };
-      reader.readAsDataURL(file);
-    });
+    for (const file of filesToAdd) {
+      const { file: compressedFile, base64 } = await compressImageFile(file);
+      selectedFilesList.push(compressedFile);
+      if (base64) selectedImagesBase64.push(base64);
+    }
+
+    renderImagePreviews();
   }
 
   function renderImagePreviews() {

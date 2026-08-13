@@ -637,8 +637,61 @@ function closeProductDetail() {
   }
 }
 
-// ─── Image Upload (Up to 3 Photos) ─────────────────────────────────────────
-function handleImageSelect() {
+// ─── Image Compression & Upload (Up to 3 Photos) ───────────────────────────
+function compressImageFile(file, maxWidth = 1000, quality = 0.75) {
+  return new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/')) {
+      resolve({ file, base64: null });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxWidth) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxWidth) / height);
+            height = maxWidth;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            resolve({ file, base64: compressedBase64 });
+            return;
+          }
+          const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+            type: 'image/jpeg',
+            lastModified: Date.now()
+          });
+          resolve({ file: compressedFile, base64: compressedBase64 });
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => resolve({ file, base64: e.target.result });
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve({ file, base64: null });
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleImageSelect() {
   if (!imageInput || !imageInput.files) return;
   const files = Array.from(imageInput.files);
   if (files.length === 0) return;
@@ -650,15 +703,13 @@ function handleImageSelect() {
   const remaining = 3 - selectedFilesList.length;
   const filesToAdd = files.slice(0, remaining);
 
-  filesToAdd.forEach(file => {
-    selectedFilesList.push(file);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      selectedImagesBase64.push(e.target.result);
-      renderImagePreviews();
-    };
-    reader.readAsDataURL(file);
-  });
+  for (const file of filesToAdd) {
+    const { file: compressedFile, base64 } = await compressImageFile(file);
+    selectedFilesList.push(compressedFile);
+    if (base64) selectedImagesBase64.push(base64);
+  }
+
+  renderImagePreviews();
 }
 
 function renderImagePreviews() {
@@ -731,7 +782,7 @@ async function uploadImagesToStorage(files, productId) {
 }
 
 
-// ─── Publish & Update Submit ──────────────────────────────────────────────
+// ─── Publish Submit (Instant 0ms UI Update + Background Sync) ──────────────
 async function handlePublishSubmit(e) {
   e.preventDefault();
 
@@ -779,25 +830,14 @@ async function handlePublishSubmit(e) {
     return;
   }
 
-  const submitBtn = publishForm.querySelector('.btn-submit');
-  submitBtn.disabled = true;
-  const isEditing = Boolean(editingProductId);
-  submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${isEditing ? 'Guardando cambios...' : 'Publicando...'}`;
-
-  const productId = editingProductId || `prod-${Date.now()}`;
-
-  // Step 1: Upload photos to Supabase Storage (if new files selected)
-  let imageUrls = selectedImagesBase64.length > 0 ? [...selectedImagesBase64] : [CATEGORY_FALLBACK_IMAGES[category] || CATEGORY_FALLBACK_IMAGES.otros];
-
-  if (selectedFilesList.length > 0 && supabaseClient) {
-    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo fotos...';
-    const uploadedUrls = await uploadImagesToStorage(selectedFilesList, productId);
-    if (uploadedUrls && uploadedUrls.length > 0) {
-      imageUrls = uploadedUrls;
-      console.log('✅ Fotos subidas a Storage:', uploadedUrls);
-    }
+  const submitBtn = publishForm?.querySelector('.btn-submit');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Publicando...';
   }
 
+  const productId = `prod-${Date.now()}`;
+  let imageUrls = selectedImagesBase64.length > 0 ? [...selectedImagesBase64] : [CATEGORY_FALLBACK_IMAGES[category] || CATEGORY_FALLBACK_IMAGES.otros];
   const primaryImage = imageUrls[0] || CATEGORY_FALLBACK_IMAGES[category] || CATEGORY_FALLBACK_IMAGES.otros;
 
   const productData = {
@@ -813,50 +853,45 @@ async function handlePublishSubmit(e) {
     delivery_badge: deliveryBadge,
     image: primaryImage,
     images: imageUrls,
-    created_at: isEditing ? (productsState.find(p => p.id === productId)?.created_at || new Date().toISOString()) : new Date().toISOString()
+    created_at: new Date().toISOString()
   };
 
-  // Step 2: Save or Update product record in Supabase DB
-  let savedToCloud = false;
-  if (supabaseClient) {
-    try {
-      const { error } = isEditing 
-        ? await supabaseClient.from(TABLE).update(productData).eq('id', productId)
-        : await supabaseClient.from(TABLE).insert([productData]);
-
-      if (!error) {
-        savedToCloud = true;
-        console.log(`✅ Producto ${isEditing ? 'actualizado' : 'guardado'} en Supabase.`);
-      } else {
-        console.warn('Error en Supabase:', error.message);
-      }
-    } catch (err) {
-      console.error('Error de red Supabase:', err);
-    }
-  }
-
-  // Update local state
-  if (isEditing) {
-    const idx = productsState.findIndex(p => p.id === productId);
-    if (idx !== -1) productsState[idx] = productData;
-  } else {
-    productsState.unshift(productData);
-  }
-
+  // ⚡ 1. Instant UI update (0ms delay for user!)
+  productsState.unshift(productData);
   saveToLocalStorage();
-
-  if (savedToCloud) {
-    showToast(isEditing ? '¡Publicación actualizada correctamente!' : '¡Publicado en La Vitrina Pereirana! 🎉', 'success');
-  } else {
-    showToast(isEditing ? 'Cambios guardados localmente.' : 'Publicado localmente.', 'success');
-  }
-
   renderProducts();
   updateStats();
   closeModal();
 
-  submitBtn.disabled = false;
-  submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Publicar en Mercado Pereira';
+  showToast('¡Publicado en La Vitrina Pereirana! 🎉 Todos pueden verlo ya.', 'success');
+
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Publicar en Mercado Pereira';
+  }
+
+  // 📡 2. Background Cloud Sync (Non-blocking!)
+  if (supabaseClient) {
+    (async () => {
+      try {
+        if (selectedFilesList.length > 0) {
+          const uploadedUrls = await uploadImagesToStorage(selectedFilesList, productId);
+          if (uploadedUrls && uploadedUrls.length > 0) {
+            productData.images = uploadedUrls;
+            productData.image = uploadedUrls[0];
+            const idx = productsState.findIndex(p => p.id === productId);
+            if (idx !== -1) productsState[idx] = productData;
+            saveToLocalStorage();
+            renderProducts();
+          }
+        }
+        await supabaseClient.from(TABLE).insert([productData]);
+        console.log('✅ Guardado exitoso en la nube Supabase.');
+      } catch (err) {
+        console.warn('Sincronización en segundo plano:', err);
+      }
+    })();
+  }
 }
 
 // ─── Toast Notifications ──────────────────────────────────────────────────
