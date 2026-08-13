@@ -423,7 +423,7 @@ function timeAgo(isoString) {
 function buildWhatsAppLink(phone, sellerName, title, price, neighborhoodName) {
   const clean = phone.replace(/\D/g, '');
   const formatted = clean.length === 10 ? `57${clean}` : clean;
-  const text = `Hola ${sellerName}, vi tu producto "${title}" (${formatCOP(price)}) publicado en *Mercado Pereira Resiliente* 🛍️. Deseo comprarlo / solicitarlo — Sector: ${neighborhoodName}. ¿Sigue disponible?`;
+  const text = `Hola ${sellerName}, vi tu producto "${title}" (${formatCOP(price)}) publicado en *La Vitrina Pereirana* 🛍️. Deseo comprarlo / solicitarlo — Sector: ${neighborhoodName}. ¿Sigue disponible?`;
   return `https://wa.me/${formatted}?text=${encodeURIComponent(text)}`;
 }
 
@@ -625,7 +625,7 @@ async function handlePublishSubmit(e) {
   saveToLocalStorage();
 
   if (savedToCloud) {
-    showToast('¡Producto publicado en Mercado Pereira! 🎉 Todos pueden verlo ya.', 'success');
+    showToast('¡Publicado en La Vitrina Pereirana! 🎉 Todos pueden verlo ya.', 'success');
   } else {
     showToast('Publicado localmente. Se sincronizará cuando la BD esté lista.', 'success');
   }
