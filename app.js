@@ -149,9 +149,6 @@ let currentSort = 'recent';
 let selectedFilesList = [];    // Array of File objects (up to 3)
 let selectedImagesBase64 = []; // Array of base64 preview strings
 let isLoadingFromDB = false;
-let isAdminMode = sessionStorage.getItem('pereira_admin_logged') === 'true';
-let editingProductId = null;
-const ADMIN_PIN = '1234';
 
 // ─── DOM Refs ─────────────────────────────────────────────────────────────
 const productsGrid        = document.getElementById('productsGrid');
@@ -390,66 +387,10 @@ function setupEventListeners() {
     });
   }
 
-  // Admin Mode Login / Logout Handlers
-  const openAdminModalBtn  = document.getElementById('openAdminModalBtn');
-  const closeAdminModalBtn = document.getElementById('closeAdminModalBtn');
-  const cancelAdminBtn     = document.getElementById('cancelAdminBtn');
-  const adminModal         = document.getElementById('adminModal');
-  const adminLoginForm     = document.getElementById('adminLoginForm');
-  const logoutAdminBtn     = document.getElementById('logoutAdminBtn');
-
-  if (openAdminModalBtn) openAdminModalBtn.addEventListener('click', () => {
-    if (adminModal) adminModal.classList.add('active');
-  });
-  if (closeAdminModalBtn) closeAdminModalBtn.addEventListener('click', () => {
-    if (adminModal) adminModal.classList.remove('active');
-  });
-  if (cancelAdminBtn) cancelAdminBtn.addEventListener('click', () => {
-    if (adminModal) adminModal.classList.remove('active');
-  });
-  if (adminLoginForm) {
-    adminLoginForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const pin = document.getElementById('adminPin').value.trim();
-      if (pin === ADMIN_PIN) {
-        isAdminMode = true;
-        sessionStorage.setItem('pereira_admin_logged', 'true');
-        if (adminModal) adminModal.classList.remove('active');
-        adminLoginForm.reset();
-        showToast('🔓 Modo Administrador Activado', 'success');
-        updateAdminUI();
-      } else {
-        showToast('Clave PIN incorrecta. Intenta nuevamente.', 'error');
-      }
-    });
-  }
-  if (logoutAdminBtn) {
-    logoutAdminBtn.addEventListener('click', () => {
-      isAdminMode = false;
-      sessionStorage.removeItem('pereira_admin_logged');
-      showToast('🔒 Sesión de Administrador cerrada.', 'success');
-      updateAdminUI();
-    });
-  }
-
-  // Card click handler — opens product detail modal & photo lightbox + admin actions
+  // Card click handler — opens product detail modal & photo lightbox
   if (productsGrid) {
     productsGrid.addEventListener('click', (e) => {
-      const editBtn   = e.target.closest('.btn-admin-edit');
-      const deleteBtn = e.target.closest('.btn-admin-delete');
-
-      if (editBtn) {
-        e.stopPropagation();
-        openEditModal(editBtn.dataset.editId);
-        return;
-      }
-      if (deleteBtn) {
-        e.stopPropagation();
-        deleteProduct(deleteBtn.dataset.deleteId);
-        return;
-      }
-
-      if (e.target.closest('.action-buttons') || e.target.closest('.admin-card-actions')) return;
+      if (e.target.closest('.action-buttons')) return;
       const card = e.target.closest('.product-card');
       if (card && card.dataset.productId) {
         openProductDetail(card.dataset.productId);
@@ -466,8 +407,6 @@ function setupEventListeners() {
       if (e.target === productDetailModal) closeProductDetail();
     });
   }
-
-  updateAdminUI();
 }
 
 // Bind category pills with clean click event delegation for desktop & mobile touch
@@ -551,77 +490,43 @@ function buildWhatsAppLink(phone, sellerName, title, price, neighborhoodName) {
   return `https://wa.me/${formatted}?text=${encodeURIComponent(text)}`;
 }
 
-// ─── Product Card HTML ────────────────────────────────────────────────────
+// ─── Product Card HTML (Compact — click opens full detail modal) ──────────
 function createProductCardHTML(product) {
-  const catLabel   = CATEGORY_LABELS[product.category] || '📦 Producto';
-  const barrio     = product.neighborhood_name || NEIGHBORHOOD_LABELS[product.neighborhood] || product.neighborhood || 'Pereira';
-  const delivery   = DELIVERY_LABELS[product.delivery_badge] || '🛵 A Domicilio';
-  const waLink     = buildWhatsAppLink(product.seller_phone, product.seller_name, product.title, product.price, barrio);
-  const callLink   = `tel:${product.seller_phone}`;
-  const imgUrl     = (product.images && product.images[0]) || product.image || CATEGORY_FALLBACK_IMAGES[product.category] || CATEGORY_FALLBACK_IMAGES.otros;
-  const timeLabel  = timeAgo(product.created_at);
-
-  const adminControls = isAdminMode ? `
-    <div class="admin-card-actions" onclick="event.stopPropagation();">
-      <button class="btn-admin-edit" data-edit-id="${product.id}">
-        <i class="fa-solid fa-pen-to-square"></i> Editar
-      </button>
-      <button class="btn-admin-delete" data-delete-id="${product.id}">
-        <i class="fa-solid fa-trash-can"></i> Eliminar
-      </button>
-    </div>
-  ` : '';
+  const catLabel  = CATEGORY_LABELS[product.category] || '📦 Producto';
+  const barrio    = product.neighborhood_name || NEIGHBORHOOD_LABELS[product.neighborhood] || product.neighborhood || 'Pereira';
+  const waLink    = buildWhatsAppLink(product.seller_phone, product.seller_name, product.title, product.price, barrio);
+  const callLink  = `tel:${product.seller_phone}`;
+  const imgUrl    = (product.images && product.images[0]) || product.image || CATEGORY_FALLBACK_IMAGES[product.category] || CATEGORY_FALLBACK_IMAGES.otros;
 
   return `
-    <article class="product-card" data-product-id="${product.id}" title="Haz clic para ver fotos y detalles">
+    <article class="product-card" data-product-id="${product.id}" title="Toca para ver detalles y fotos">
       <div class="product-image-box">
         <img src="${imgUrl}" alt="${product.title}" class="product-image" loading="lazy"
              onerror="this.src='${CATEGORY_FALLBACK_IMAGES.otros}'">
         <span class="badge-category">${catLabel}</span>
-        <span class="badge-delivery">${delivery}</span>
         <span class="badge-neighborhood"><i class="fa-solid fa-location-dot"></i> ${barrio}</span>
       </div>
 
       <div class="product-card-body">
-        <div class="product-seller">
-          <i class="fa-solid fa-store"></i>
-          <span>${product.seller_name}</span>
-          <span class="time-ago">&bull; ${timeLabel}</span>
-        </div>
-
         <h3 class="product-title">${product.title}</h3>
-        <p class="product-description">${product.description || 'Sin descripción detallada.'}</p>
 
         <div class="product-footer">
-          <div class="price-row">
-            <span class="price-label">Precio Solidario:</span>
-            <span class="product-price">${formatCOP(product.price)}</span>
-          </div>
+          <span class="product-price">${formatCOP(product.price)}</span>
 
           <div class="action-buttons">
-            <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp" onclick="event.stopPropagation();">
-              <i class="fa-brands fa-whatsapp"></i> Comprar / Contactar
+            <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp btn-sm" onclick="event.stopPropagation();">
+              <i class="fa-brands fa-whatsapp"></i> WhatsApp
             </a>
-            <a href="${callLink}" class="btn btn-call" title="Llamar al vendedor" onclick="event.stopPropagation();">
+            <a href="${callLink}" class="btn btn-call btn-sm" title="Llamar" onclick="event.stopPropagation();">
               <i class="fa-solid fa-phone"></i>
             </a>
           </div>
-
-          ${adminControls}
         </div>
       </div>
     </article>
   `;
 }
 
-// ─── Admin UI Toggle ─────────────────────────────────────────────────────
-function updateAdminUI() {
-  const adminStatusBar = document.getElementById('adminStatusBar');
-  if (adminStatusBar) {
-    adminStatusBar.style.display = isAdminMode ? 'flex' : 'none';
-  }
-  renderProducts();
-}
 
 // ─── Stats Counter ────────────────────────────────────────────────────────
 function updateStats() {
@@ -629,6 +534,7 @@ function updateStats() {
   const uniqueSellers = new Set(productsState.map(p => (p.seller_name || '').toLowerCase().trim()));
   totalSellersCount.textContent = uniqueSellers.size;
 }
+
 
 // ─── Modal ────────────────────────────────────────────────────────────────
 function openModal() {
@@ -816,51 +722,9 @@ async function uploadImagesToStorage(files, productId) {
   return urls;
 }
 
-// ─── Admin Edit & Delete Operations ──────────────────────────────────────
-async function deleteProduct(id) {
-  if (!confirm('¿Estás seguro de eliminar esta publicación de La Vitrina Pereirana?')) return;
-
-  if (supabaseClient) {
-    try {
-      const { error } = await supabaseClient.from(TABLE).delete().eq('id', id);
-      if (error) console.warn('Error eliminando en Supabase:', error.message);
-    } catch (e) {
-      console.error('Error de red al eliminar:', e);
-    }
-  }
-
-  productsState = productsState.filter(p => p.id !== id);
-  saveToLocalStorage();
-  renderProducts();
-  updateStats();
-  showToast('Publicación eliminada correctamente.', 'success');
-}
-
-function openEditModal(id) {
-  const product = productsState.find(p => p.id === id);
-  if (!product) return;
-
-  editingProductId = id;
-  document.getElementById('sellerName').value = product.seller_name || '';
-  document.getElementById('sellerPhone').value = product.seller_phone || '';
-  document.getElementById('productTitle').value = product.title || '';
-  document.getElementById('productPrice').value = new Intl.NumberFormat('es-CO').format(product.price);
-  document.getElementById('productCategory').value = product.category || '';
-  document.getElementById('productNeighborhood').value = product.neighborhood_name || product.neighborhood || '';
-  document.getElementById('deliveryBadge').value = product.delivery_badge || 'domicilio';
-  document.getElementById('productDescription').value = product.description || '';
-
-  selectedFilesList = [];
-  selectedImagesBase64 = product.images || (product.image ? [product.image] : []);
-  renderImagePreviews();
-
-  const modalTitle = publishModal.querySelector('.modal-title-group h3');
-  if (modalTitle) modalTitle.textContent = 'Editar Publicación';
-
-  openModal();
-}
 
 // ─── Publish & Update Submit ──────────────────────────────────────────────
+
 async function handlePublishSubmit(e) {
   e.preventDefault();
 
