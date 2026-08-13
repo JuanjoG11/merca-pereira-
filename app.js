@@ -149,6 +149,7 @@ let currentSort = 'recent';
 let selectedFilesList = [];    // Array of File objects (up to 3)
 let selectedImagesBase64 = []; // Array of base64 preview strings
 let isLoadingFromDB = false;
+let editingProductId = null;
 
 // ─── DOM Refs ─────────────────────────────────────────────────────────────
 const productsGrid        = document.getElementById('productsGrid');
@@ -352,6 +353,7 @@ function setupEventListeners() {
       openModal();
     });
   });
+  if (publishForm) publishForm.addEventListener('submit', handlePublishSubmit);
   if (closePublishModalBtn) closePublishModalBtn.addEventListener('click', closeModal);
   if (cancelPublishBtn) cancelPublishBtn.addEventListener('click', closeModal);
   if (publishModal) {
